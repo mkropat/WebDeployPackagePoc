@@ -1,0 +1,135 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" DefaultTargets="Build"
+         xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <!-- Created by Craig Andrews http://candrews.integralblue.com candrews@integralblue.com -->
+  
+  <UsingTask TaskName="Microsoft.WebDeployment.Tasks.AspNetMerge" AssemblyFile="$(MSBuildExtensionsPath)\Microsoft\WebDeployment\v10.0\Microsoft.WebDeployment.Tasks.dll"/>
+
+  <PropertyGroup>
+    <_PackageTempDirCompiled>$(PackageTempRootDir)\PackageTempCompiled</_PackageTempDirCompiled>
+
+    <CleanDependsOn>
+      $(CleanDependsOn);
+      CleanWebsitesPackageTempDirCompiled;
+    </CleanDependsOn>
+    
+  </PropertyGroup>
+
+  <!--
+    ============================================================
+                                        GetAspNetMergePath
+
+    Get the paths for AspNet_Merge.exe Path.
+    Use Framework SDK's Path.  If not exist, fall back to WDP installpath.
+    ============================================================
+    -->
+  <PropertyGroup>
+    <GetAspNetMergePathDependsOn>
+      GetFrameworkPaths;
+    </GetAspNetMergePathDependsOn>
+  </PropertyGroup>
+  <Target
+      Name="GetAspNetMergePath"
+      DependsOnTargets="$(GetAspNetMergePathDependsOn)">
+    <PropertyGroup>
+      <AspnetMergeName>aspnet_merge.exe</AspnetMergeName>
+      <AspnetMergePath>$(MSBuildExtensionsPath)\Microsoft\WebDeployment\v10.0</AspnetMergePath>
+      <AspnetMergePath Condition="Exists('$(TargetFrameworkSDKDirectoryBin)$(AspnetMergeName)')">$(TargetFrameworkSDKDirectoryBin)</AspnetMergePath>
+      
+      <!--Also check the Microsoft Windows SDK directories, see http://stackoverflow.com/questions/6611370/web-deployment-project-teamcity -->
+      <AspnetMergePath Condition="Exists('$(ProgramFiles)\Microsoft SDKs\Windows\v7.1\Bin\NETFX 4.0 Tools\$(AspnetMergeName)')">$(ProgramFiles)\Microsoft SDKs\Windows\v7.1\Bin\NETFX 4.0 Tools\</AspnetMergePath>
+      <AspnetMergePath Condition="Exists('$(MSBuildProgramFiles32)\Microsoft SDKs\Windows\v7.1\Bin\NETFX 4.0 Tools\$(AspnetMergeName)')">$(MSBuildProgramFiles32)\Microsoft SDKs\Windows\v7.1\Bin\NETFX 4.0 Tools\</AspnetMergePath>
+      <AspnetMergePath Condition="Exists('$(ProgramFiles)\Microsoft SDKs\Windows\v7.0A\Bin\NETFX 4.0 Tools\$(AspnetMergeName)')">$(ProgramFiles)\Microsoft SDKs\Windows\v7.0A\Bin\NETFX 4.0 Tools\</AspnetMergePath>
+      <AspnetMergePath Condition="Exists('$(MSBuildProgramFiles32)\Microsoft SDKs\Windows\v7.0A\Bin\NETFX 4.0 Tools\$(AspnetMergeName)')">$(MSBuildProgramFiles32)\Microsoft SDKs\Windows\v7.0A\Bin\NETFX 4.0 Tools\</AspnetMergePath>
+    
+    </PropertyGroup>
+  </Target>
+
+  <!--
+    ============================================================
+                                        GetFrameworkPaths
+
+    Get the paths for the .NET Framework installation directory, and the .NET Framework
+    SDK installation directory.
+
+    These paths are not used directly by this .targets file but are available for pre and
+    post build steps.
+    ============================================================
+    -->
+  <PropertyGroup>
+    <GetFrameworkPathsDependsOn></GetFrameworkPathsDependsOn>
+  </PropertyGroup>
+  <Target
+      Name="GetFrameworkPaths"
+      DependsOnTargets="$(GetFrameworkPathsDependsOn)">
+
+    <!-- Get the paths to all of the target .NET framework directories. -->
+    <GetFrameworkPath>
+      <Output TaskParameter="FrameworkVersion40Path" PropertyName="Framework40Dir"/>
+      <Output TaskParameter="FrameworkVersion20Path" PropertyName="Framework20Dir"/>
+      <Output Condition=" '$(TargetFrameworkVersion)' == 'v4.0' "                                                                                  TaskParameter="FrameworkVersion40Path"  ItemName="_CombinedTargetFrameworkDirectoriesItem" />
+      <Output Condition=" '$(TargetFrameworkVersion)' == 'v3.5' "                                                                                  TaskParameter="FrameworkVersion35Path"  ItemName="_CombinedTargetFrameworkDirectoriesItem" />
+      <Output Condition=" '$(TargetFrameworkVersion)' == 'v3.0' or '$(TargetFrameworkVersion)' == 'v3.5' "                                         TaskParameter="FrameworkVersion30Path"  ItemName="_CombinedTargetFrameworkDirectoriesItem" />
+      <Output Condition=" '$(TargetFrameworkVersion)' == 'v2.0' or '$(TargetFrameworkVersion)' == 'v3.0' or '$(TargetFrameworkVersion)' == 'v3.5'" TaskParameter="FrameworkVersion20Path"  ItemName="_CombinedTargetFrameworkDirectoriesItem" />
+    </GetFrameworkPath>
+
+    <PropertyGroup>
+      <_WDPFrameworkLowerThan4>False</_WDPFrameworkLowerThan4>
+      <_WDPFrameworkLowerThan4 Condition="'$(TargetFrameworkVersion)' == 'v2.0' or '$(TargetFrameworkVersion)' == 'v3.0' or '$(TargetFrameworkVersion)' == 'v3.5'">True</_WDPFrameworkLowerThan4>
+    </PropertyGroup>
+
+    <PropertyGroup Condition="'$(TargetFrameworkDirectory)'==''">
+      <TargetFrameworkDirectory>@(_CombinedTargetFrameworkDirectoriesItem)</TargetFrameworkDirectory>
+    </PropertyGroup>
+
+    <PropertyGroup Condition="'$(TargetFrameworkSDKDirectoryBin)'==''">
+      <TargetFrameworkSDKDirectoryBin>$(SDK40ToolsPath)</TargetFrameworkSDKDirectoryBin>
+      <TargetFrameworkSDKDirectoryBin Condition="'$(_WDPFrameworkLowerThan4)' == 'True'">$(SDK35ToolsPath)</TargetFrameworkSDKDirectoryBin>
+    </PropertyGroup>
+
+    <PropertyGroup Condition="'$(AspnetCompilerPath)'==''">
+      <AspnetCompilerPath >$(Framework40Dir)</AspnetCompilerPath>
+      <AspnetCompilerPath Condition=" '$(_WDPFrameworkLowerThan4)' == 'True' ">$(Framework20Dir)</AspnetCompilerPath>
+    </PropertyGroup>
+
+
+
+  </Target>
+
+  <!--********************************************************************-->
+  <!-- CleanWebsitesPackageTempDir  -->
+  <!-- ********************************************************************-->
+  <PropertyGroup>
+    <CleanWebsitesPackageTempDirCompiledDependsOn Condition="'$(CleanWebsitesPackageTempDirCompiledDependsOn)' == ''">
+    </CleanWebsitesPackageTempDirCompiledDependsOn>
+  </PropertyGroup>
+  <Target Name="CleanWebsitesPackageTempDirCompiled" DependsOnTargets="$(CleanWebsitesPackageTempDirCompiledDependsOn)">
+    <!--Assertion check-->
+    <!--In the case of Clean Packaging/Publish, we simply delete the PackageTempDirCompiled-->
+    <RemoveDir Condition="Exists($(_PackageTempDirCompiled))" Directories="$(_PackageTempDirCompiled)" ContinueOnError="true" />
+  </Target>
+
+  <Target Name="CompilePackage" BeforeTargets="Package" Condition="$(AspNetCompiler)">
+    <AspNetCompiler
+      Debug="$(DebugSymbols)"
+      VirtualPath="/"
+      PhysicalPath="$(_PackageTempDir)"
+      TargetPath="$(_PackageTempDirCompiled)"
+      Force="True"
+      />
+    <!--From here on, we want _PackageTempDirCompiled used in place of _PackageTempDir everywhere -->
+    <PropertyGroup>
+      <_PackageTempDir>$(_PackageTempDirCompiled)</_PackageTempDir>
+    </PropertyGroup>
+  </Target>
+
+  <Target Name="AspNetMerge" DependsOnTargets="GetAspNetMergePath" AfterTargets="CompilePackage" Condition="$(AspNetMerge)">
+    <Message Text="Use aspnet_merge from: $(AspnetMergePath)" />
+    <AspNetMerge
+          ExePath="$(AspnetMergePath)"
+          Debug="$(DebugSymbols)"
+          ApplicationPath="$(_PackageTempDirCompiled)"
+          SingleAssemblyName="$(AssemblyName).Merged"
+          />
+  </Target>
+</Project>
