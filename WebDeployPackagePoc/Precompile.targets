@@ -6,8 +6,6 @@
   <UsingTask TaskName="Microsoft.WebDeployment.Tasks.AspNetMerge" AssemblyFile="$(MSBuildExtensionsPath)\Microsoft\WebDeployment\v10.0\Microsoft.WebDeployment.Tasks.dll"/>
 
   <PropertyGroup>
-    <_PackageTempDirCompiled>$(PackageTempRootDir)\PackageTempCompiled</_PackageTempDirCompiled>
-
     <CleanDependsOn>
       $(CleanDependsOn);
       CleanWebsitesPackageTempDirCompiled;
@@ -91,36 +89,18 @@
       <AspnetCompilerPath >$(Framework40Dir)</AspnetCompilerPath>
       <AspnetCompilerPath Condition=" '$(_WDPFrameworkLowerThan4)' == 'True' ">$(Framework20Dir)</AspnetCompilerPath>
     </PropertyGroup>
-
-
-
-  </Target>
-
-  <!--********************************************************************-->
-  <!-- CleanWebsitesPackageTempDir  -->
-  <!-- ********************************************************************-->
-  <PropertyGroup>
-    <CleanWebsitesPackageTempDirCompiledDependsOn Condition="'$(CleanWebsitesPackageTempDirCompiledDependsOn)' == ''">
-    </CleanWebsitesPackageTempDirCompiledDependsOn>
-  </PropertyGroup>
-  <Target Name="CleanWebsitesPackageTempDirCompiled" DependsOnTargets="$(CleanWebsitesPackageTempDirCompiledDependsOn)">
-    <!--Assertion check-->
-    <!--In the case of Clean Packaging/Publish, we simply delete the PackageTempDirCompiled-->
-    <RemoveDir Condition="Exists($(_PackageTempDirCompiled))" Directories="$(_PackageTempDirCompiled)" ContinueOnError="true" />
   </Target>
 
   <Target Name="CompilePackage" BeforeTargets="Package" Condition="$(AspNetCompiler)">
+    <Exec Command="powershell -noprofile &quot;mv -Force '$(_PackageTempDir)' '$(PackageTempRootDir)\PackageTmpSrc'&quot;" />
+
     <AspNetCompiler
       Debug="$(DebugSymbols)"
       VirtualPath="/"
-      PhysicalPath="$(_PackageTempDir)"
-      TargetPath="$(_PackageTempDirCompiled)"
+      PhysicalPath="$(PackageTempRootDir)\PackageTmpSrc"
+      TargetPath="$(_PackageTempDir)"
       Force="True"
       />
-    <!--From here on, we want _PackageTempDirCompiled used in place of _PackageTempDir everywhere -->
-    <PropertyGroup>
-      <_PackageTempDir>$(_PackageTempDirCompiled)</_PackageTempDir>
-    </PropertyGroup>
   </Target>
 
   <Target Name="AspNetMerge" DependsOnTargets="GetAspNetMergePath" AfterTargets="CompilePackage" Condition="$(AspNetMerge)">
@@ -128,7 +108,7 @@
     <AspNetMerge
           ExePath="$(AspnetMergePath)"
           Debug="$(DebugSymbols)"
-          ApplicationPath="$(_PackageTempDirCompiled)"
+          ApplicationPath="$(_PackageTempDir)"
           SingleAssemblyName="$(AssemblyName).Merged"
           />
   </Target>
